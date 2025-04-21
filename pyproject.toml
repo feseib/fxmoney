@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fxmoney"
+version = "0.1.0a0"
+description = "Lightweight Python library for precise money arithmetic with pluggable FX-rate backends, automatic currency conversion, and clean JSON serialization."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "Your Name", email = "you@example.com" }
+]
+keywords = ["money", "currency", "fx", "exchange rates", "financial math"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Intended Audience :: Developers",
+  "Topic :: Office/Business :: Financial",
+  "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+dependencies = [
+  # Nur Standard-Abhängigkeiten – Requests wird für REST-Backend benötigt
+  "requests>=2.31"
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+dev  = ["pytest", "ruff", "build"]
+
+[project.urls]
+Homepage        = "https://github.com/your‑account/fxmoney"
+Source          = "https://github.com/your‑account/fxmoney"
+Issues          = "https://github.com/your‑account/fxmoney/issues"
