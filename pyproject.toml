@@ -27,7 +27,6 @@ classifiers = [
 ]
 
 dependencies = [
-  # Nur Standard-Abhängigkeiten – Requests wird für REST-Backend benötigt
   "requests>=2.31"
 ]
 
@@ -36,6 +35,6 @@ test = ["pytest>=7"]
 dev  = ["pytest", "ruff", "build"]
 
 [project.urls]
-Homepage        = "https://github.com/your‑account/fxmoney"
-Source          = "https://github.com/your‑account/fxmoney"
-Issues          = "https://github.com/your‑account/fxmoney/issues"
+Homepage = "https://github.com/your-account/fxmoney"
+Source   = "https://github.com/your-account/fxmoney"
+Issues   = "https://github.com/your-account/fxmoney/issues"
