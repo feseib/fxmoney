@@ -1,8 +1,3 @@
-
----
-
-### TODO.md
-```markdown
 # fxmoney – Roadmap
 
 ## v0.1.x (MVP)
