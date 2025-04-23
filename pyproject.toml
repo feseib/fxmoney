@@ -39,5 +39,8 @@ Homepage = "https://github.com/your-account/fxmoney"
 Source   = "https://github.com/your-account/fxmoney"
 Issues   = "https://github.com/your-account/fxmoney/issues"
 
+[project.scripts]
+fxmoney = "fxmoney.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["fxmoney"]

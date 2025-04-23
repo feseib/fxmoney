@@ -14,7 +14,7 @@
 - [x] Thread-safe rate cache
 
 ## v0.3.x
-- [ ] CLI tool: `fxmoney convert 100 USD EUR --date 2020-01-01`
+- [x] CLI tool: `fxmoney convert 100 USD EUR --date 2020-01-01`
 - [ ] Async background update (optional)
 
 ## v1.0

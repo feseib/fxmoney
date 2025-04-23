@@ -1,13 +1,18 @@
+# fxmoney/rates/ecb.py
+
 """
 ECB FX-Rate Backend for fxmoney
-Loads historical & current exchange rates from the ECB CSV and caches them locally.
-Now with thread-safe on-demand cache refresh.
+Loads historical & current exchange rates exclusively via the ECB ZIP download,
+then caches and parses the embedded CSV.
+Thread-safe on-demand refresh.
 """
 
 from __future__ import annotations
 import csv
+import io
 import os
 import threading
+import zipfile
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import requests
@@ -15,49 +20,52 @@ import requests
 from .exceptions import MissingRateError
 from ..config import settings
 
-# ECB CSV URL and local cache path
-CSV_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.csv"
-CACHE_DIR = os.path.join(os.path.expanduser("~"), ".fxmoney")
-CACHE_FILE = os.path.join(CACHE_DIR, "eurofxref-hist.csv")
-DATE_FMT = "%Y-%m-%d"
+ZIP_URL    = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip"
+CACHE_DIR  = os.path.join(os.path.expanduser("~"), ".fxmoney")
+CACHE_ZIP  = os.path.join(CACHE_DIR, "eurofxref-hist.zip")
+DATE_FMT   = "%Y-%m-%d"
+
 
 class ECBBackend:
-    """FX backend using ECB historical rates via CSV download and cache,
-    with thread-safe on-demand refresh."""
+    """FX backend using the ECB ZIP file with thread-safe cache refresh."""
 
-    # Lock shared across all instances to protect cache file and in-memory rates
-    _refresh_lock = threading.Lock()
+    _lock = threading.Lock()
 
     def __init__(self):
         os.makedirs(CACHE_DIR, exist_ok=True)
-        # initial load
-        with ECBBackend._refresh_lock:
+        with ECBBackend._lock:
             if not self._is_cache_fresh():
-                self._download_csv()
+                self._download_and_extract()
             self._rates = self._load_rates()
 
     def _is_cache_fresh(self) -> bool:
-        """Check if the cache file is younger than 24 hours."""
+        """Cache fresh iff ZIP file is <24 h alt."""
         try:
-            mtime = os.path.getmtime(CACHE_FILE)
+            mtime = os.path.getmtime(CACHE_ZIP)
             return (datetime.now().timestamp() - mtime) < 24 * 3600
         except OSError:
             return False
 
-    def _download_csv(self):
-        """Download the ECB CSV file to local cache."""
-        resp = requests.get(CSV_URL, timeout=settings.request_timeout)
+    def _download_and_extract(self):
+        """Fetch the ZIP and extract the CSV into memory."""
+        resp = requests.get(ZIP_URL, timeout=settings.request_timeout)
         resp.raise_for_status()
-        with open(CACHE_FILE, "wb") as f:
+        with open(CACHE_ZIP, "wb") as f:
             f.write(resp.content)
+        # unzip in place (we only need in-memory CSV parsing)
+        with zipfile.ZipFile(io.BytesIO(resp.content)) as z:
+            name = next(n for n in z.namelist() if n.endswith(".csv"))
+            with z.open(name) as zf, open(os.path.join(CACHE_DIR, name), "wb") as out:
+                out.write(zf.read())
 
     def _load_rates(self) -> dict[date, dict[str, Decimal]]:
-        """Parse the CSV into a dict mapping date → {currency: rate}."""
+        """Parse the extracted CSV into date → {currency: rate}."""
+        csv_path = os.path.join(CACHE_DIR, "eurofxref-hist.csv")
         rates: dict[date, dict[str, Decimal]] = {}
-        with open(CACHE_FILE, encoding="utf-8") as f:
+        with open(csv_path, encoding="utf-8") as f:
             reader = csv.reader(f)
-            headers = next(reader)
-            currencies = headers[1:]
+            headers   = next(reader)
+            currencies= headers[1:]
             for row in reader:
                 try:
                     d = datetime.strptime(row[0], DATE_FMT).date()
@@ -76,22 +84,18 @@ class ECBBackend:
 
     def get_rate(self, src: str, tgt: str, on_date: date | None = None) -> float:
         """
-        Get the rate from src to tgt on on_date.
-        Automatically refreshes cache if stale (once per 24h), thread-safely.
+        Get rate src→tgt on on_date, auto-refreshing the ZIP if stale.
         """
-        # Refresh cache if needed
         if not self._is_cache_fresh():
-            with ECBBackend._refresh_lock:
-                # double-check inside lock
+            with ECBBackend._lock:
                 if not self._is_cache_fresh():
-                    self._download_csv()
+                    self._download_and_extract()
                     self._rates = self._load_rates()
 
-        # choose date
+        # choose the effective date
         if on_date is None:
             on_date = max(self._rates.keys())
 
-        # find nearest available date <= on_date
         available = [d for d in self._rates if d <= on_date]
         if not available:
             if settings.fallback_mode == "last":
@@ -102,12 +106,10 @@ class ECBBackend:
             d0 = max(available)
 
         daily = self._rates[d0]
-
-        # same currency
         if src == tgt:
             return 1.0
 
-        # src → EUR
+        # src→EUR
         if src == settings.base_currency:
             src_to_eur = Decimal(1)
         else:
@@ -118,7 +120,7 @@ class ECBBackend:
                 raise MissingRateError(f"No rate for {src} on {d0}")
             src_to_eur = Decimal(1) / rate_src
 
-        # EUR → tgt
+        # EUR→tgt
         if tgt == settings.base_currency:
             eur_to_tgt = Decimal(1)
         else:
