@@ -15,7 +15,7 @@
 
 ## v0.3.x
 - [x] CLI tool: `fxmoney convert 100 USD EUR --date 2020-01-01`
-- [ ] Async background update (optional)
+- [x] Async background update (optional)
 
 ## v1.0
 - [ ] Complete test suite
