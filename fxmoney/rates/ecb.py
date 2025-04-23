@@ -1,5 +1,5 @@
 """
-ECB FX‑Rate Backend for fxmoney
+ECB FX-Rate Backend for fxmoney
 Loads historical & current exchange rates from the ECB CSV and caches them locally.
 """
 
@@ -7,7 +7,7 @@ from __future__ import annotations
 import csv
 import os
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import requests
 
 from .exceptions import MissingRateError
@@ -30,7 +30,7 @@ class ECBBackend:
         self._rates = self._load_rates()
 
     def _is_cache_fresh(self) -> bool:
-        """Check if the cache file is younger than 24 hours."""
+        """Check if the cache file is younger than 24 hours."""
         try:
             mtime = os.path.getmtime(CACHE_FILE)
             return (datetime.now().timestamp() - mtime) < 24 * 3600
@@ -55,8 +55,13 @@ class ECBBackend:
                 d = datetime.strptime(row[0], DATE_FMT).date()
                 daily: dict[str, Decimal] = {}
                 for cur, val in zip(currencies, row[1:]):
-                    if val:
+                    if not val:
+                        continue
+                    try:
                         daily[cur] = Decimal(val)
+                    except InvalidOperation:
+                        # Skip malformed entries (e.g., unexpected commas or text)
+                        continue
                 rates[d] = daily
         return rates
 

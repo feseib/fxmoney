@@ -1,5 +1,5 @@
 """
-ExchangeRateHost FX‑Rate Backend for fxmoney
+ExchangeRateHost FX-Rate Backend for fxmoney
 Fetches live and historical rates via the exchangerate.host REST API.
 """
 
@@ -36,7 +36,8 @@ class HostBackend:
                 raise MissingRateError(f"No rate for {src}->{tgt} on {on_date}")
             return float(rate)
 
-        except (requests.RequestException, ValueError):
+        except (requests.RequestException, ValueError) as e:
+            # On failure, either fallback or raise MissingRateError
             if settings.fallback_mode == "last":
                 return 1.0
-            raise
+            raise MissingRateError(f"Error fetching rate for {src}->{tgt} on {on_date}: {e}") from e
