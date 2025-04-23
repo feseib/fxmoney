@@ -1,45 +1,52 @@
+# fxmoney/json_support.py
 """
 Pydantic v2 integration for fxmoney.Money.
-Registers a CoreSchema for Money so that any BaseModel field of type Money
-is (de)serialized as {"amount": "...", "currency": "..."}.
+
+✓ accepts either a Money instance or a dict {'amount','currency'}
+✓ serialises Money back to that dict
+✓ works with pydantic-core ≥ 2.0 (tested on 2.33.1)
 """
 
 from __future__ import annotations
 
 try:
-    from pydantic import TypeAdapter
     from pydantic_core import core_schema
     from .core import Money
-except ImportError:
-    # pydantic not installed → skip registration
-    __all__ = []
+except ImportError:          # Pydantic not installed
+    __all__: list[str] = []
 else:
-    def _money_core_schema(_type: type[Money], _handler: core_schema.GetCoreSchemaHandler) -> core_schema.CoreSchema:
-        """
-        CoreSchema that:
-        - structures a dict {"amount": str, "currency": str} → Money.from_dict
-        - serializes Money → plain dict via Money.to_dict()
-        """
+
+    # --- validator (dict → Money, Money passthrough) -------------------------
+    def _parse_money(v):
+        if isinstance(v, Money):
+            return v
+        if isinstance(v, dict) and {"amount", "currency"} <= v.keys():
+            return Money.from_dict(v)
+        raise ValueError("Value must be Money or dict with 'amount'+'currency'")
+
+    # --- schema builder ------------------------------------------------------
+    def _money_core_schema(
+        cls: type[Money],
+        handler: core_schema.GetCoreSchemaHandler,   # noqa: U100
+    ) -> core_schema.CoreSchema:
+        any_schema = core_schema.any_schema()
         return core_schema.no_info_after_validator_function(
-            # Structure: dict → Money
-            Money.from_dict,
-            # Input schema: object with amount:string and currency:string
-            core_schema.json_schema({
-                "type": "object",
-                "properties": {
-                    "amount": {"type": "string"},
-                    "currency": {"type": "string"}
-                },
-                "required": ["amount", "currency"],
-                "additionalProperties": False
-            }),
-            # Serialization: Money → dict
+            _parse_money,
+            any_schema,
+            # single-arg serializer required by pydantic-core 2.33
             serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda m, _: m.to_dict()
+                lambda m: m.to_dict()
             ),
         )
 
-    # Register the adapter globally
-    TypeAdapter.register_type_adapter(Money, _money_core_schema)
+    # wrapper tolerating 2- or 3-arg calls
+    def __get_pydantic_core_schema__(cls, *args, **kwargs):
+        return _money_core_schema(cls, args[-1])
+
+    setattr(
+        Money,
+        "__get_pydantic_core_schema__",
+        classmethod(__get_pydantic_core_schema__),
+    )
 
     __all__ = ["_money_core_schema"]

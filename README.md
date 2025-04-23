@@ -1,3 +1,7 @@
+[![PyPI](https://img.shields.io/pypi/v/fxmoney)](https://pypi.org/project/fxmoney/)
+[![Tests](https://github.com/<user>/fxmoney/actions/workflows/test.yml/badge.svg)](https://github.com/<user>/fxmoney/actions)
+
+
 # fxmoney
 
 Lightweight Python library for precise money arithmetic with pluggable FX-rate backends, automatic currency conversion, and clean JSON serialization.
