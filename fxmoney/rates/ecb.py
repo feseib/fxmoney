@@ -1,11 +1,13 @@
 """
 ECB FX-Rate Backend for fxmoney
 Loads historical & current exchange rates from the ECB CSV and caches them locally.
+Now with thread-safe on-demand cache refresh.
 """
 
 from __future__ import annotations
 import csv
 import os
+import threading
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import requests
@@ -19,15 +21,20 @@ CACHE_DIR = os.path.join(os.path.expanduser("~"), ".fxmoney")
 CACHE_FILE = os.path.join(CACHE_DIR, "eurofxref-hist.csv")
 DATE_FMT = "%Y-%m-%d"
 
-
 class ECBBackend:
-    """FX backend using ECB historical rates via CSV download and cache."""
+    """FX backend using ECB historical rates via CSV download and cache,
+    with thread-safe on-demand refresh."""
+
+    # Lock shared across all instances to protect cache file and in-memory rates
+    _refresh_lock = threading.Lock()
 
     def __init__(self):
         os.makedirs(CACHE_DIR, exist_ok=True)
-        if not self._is_cache_fresh():
-            self._download_csv()
-        self._rates = self._load_rates()
+        # initial load
+        with ECBBackend._refresh_lock:
+            if not self._is_cache_fresh():
+                self._download_csv()
+            self._rates = self._load_rates()
 
     def _is_cache_fresh(self) -> bool:
         """Check if the cache file is younger than 24 hours."""
@@ -52,7 +59,10 @@ class ECBBackend:
             headers = next(reader)
             currencies = headers[1:]
             for row in reader:
-                d = datetime.strptime(row[0], DATE_FMT).date()
+                try:
+                    d = datetime.strptime(row[0], DATE_FMT).date()
+                except Exception:
+                    continue
                 daily: dict[str, Decimal] = {}
                 for cur, val in zip(currencies, row[1:]):
                     if not val:
@@ -60,7 +70,6 @@ class ECBBackend:
                     try:
                         daily[cur] = Decimal(val)
                     except InvalidOperation:
-                        # Skip malformed entries (e.g., unexpected commas or text)
                         continue
                 rates[d] = daily
         return rates
@@ -68,13 +77,21 @@ class ECBBackend:
     def get_rate(self, src: str, tgt: str, on_date: date | None = None) -> float:
         """
         Get the rate from src to tgt on on_date.
-        Falls back to the last available prior date if needed.
+        Automatically refreshes cache if stale (once per 24h), thread-safely.
         """
+        # Refresh cache if needed
+        if not self._is_cache_fresh():
+            with ECBBackend._refresh_lock:
+                # double-check inside lock
+                if not self._is_cache_fresh():
+                    self._download_csv()
+                    self._rates = self._load_rates()
+
         # choose date
         if on_date is None:
             on_date = max(self._rates.keys())
 
-        # find the nearest date <= on_date
+        # find nearest available date <= on_date
         available = [d for d in self._rates if d <= on_date]
         if not available:
             if settings.fallback_mode == "last":

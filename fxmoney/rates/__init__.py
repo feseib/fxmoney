@@ -36,13 +36,18 @@ def convert_amount(
     amount: Decimal,
     src: str,
     tgt: str,
-    on_date: Optional[date] = None
+    on_date: Optional[date] = None,
+    fallback: Optional[str] = None
 ) -> Decimal:
-    """Convert `amount` from `src` to `tgt` currency at given date."""
+    """
+    Convert `amount` from `src` to `tgt` currency at given date.
+    `fallback` overrides global settings.fallback_mode (“last” or “raise”).
+    """
+    mode = fallback if fallback in ("last", "raise") else settings.fallback_mode
     try:
         rate = Decimal(str(_current_backend.get_rate(src, tgt, on_date)))
     except MissingRateError:
-        if settings.fallback_mode == "last":
+        if mode == "last":
             rate = Decimal(1)
         else:
             raise

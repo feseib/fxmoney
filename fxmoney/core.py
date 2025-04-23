@@ -4,7 +4,8 @@ Money class for fxmoney:
 - currency: ISO-4217 code (string)
 - operators +, -, *, /    (left operand's currency dominates)
 - comparisons  ==, <, <=, >, >=  (automatic FX conversion)
-- to(target, date=None)   convert currency, optional historical date
+- to(target, date=None, fallback=None)   convert currency, optional historical date,
+                                         optional per-call fallback override
 - per-currency quantization for presentation
 - to_dict()/from_dict()   minimal dict for JSON
 """
@@ -12,10 +13,10 @@ Money class for fxmoney:
 from __future__ import annotations
 from decimal import Decimal
 from datetime import date
-from typing import Any
+from typing import Any, Optional
 
 from .config import settings
-from .rates import convert_amount  # placeholder until real backends installed
+from .rates import convert_amount  # updated to accept per-call fallback
 
 
 class Money:
@@ -29,11 +30,16 @@ class Money:
         self.currency = currency.upper()
 
     # ----- internal helpers -------------------------------------------------
-    def _coerce_amount(self, other: Money, on_date: date | None = None) -> Decimal:
+    def _coerce_amount(
+        self,
+        other: Money,
+        on_date: Optional[date] = None,
+        fallback: Optional[str] = None
+    ) -> Decimal:
         """Convert other's amount into this currency (raw Decimal)."""
         if self.currency == other.currency:
             return other.amount
-        return convert_amount(other.amount, other.currency, self.currency, on_date)
+        return convert_amount(other.amount, other.currency, self.currency, on_date, fallback)
 
     def _quantize(self, amt: Decimal) -> Decimal:
         """Quantize amt to minor units for this currency."""
@@ -80,11 +86,20 @@ class Money:
     def __ge__(self, other: Money):  a, b = self._pair(other); return a >= b
 
     # ----- conversion -------------------------------------------------------
-    def to(self, target: str, on_date: date | None = None) -> Money:
+    def to(
+        self,
+        target: str,
+        on_date: Optional[date] = None,
+        fallback: Optional[str] = None
+    ) -> Money:
+        """
+        Convert to target currency (ISO code).
+        `on_date` for historical rate; `fallback` overrides global setting.
+        """
         tgt = target.upper()
         if tgt == self.currency:
             return Money(self.amount, self.currency)
-        raw = convert_amount(self.amount, self.currency, tgt, on_date)
+        raw = convert_amount(self.amount, self.currency, tgt, on_date, fallback)
         return Money(raw, tgt)
 
     # ----- representation & JSON helpers ----------------------------------

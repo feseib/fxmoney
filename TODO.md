@@ -9,9 +9,9 @@
 
 ## v0.2.x
 - [x] Per-currency quantization (EUR=2, JPY=0, …)
-- [ ] Fallback strategy configurable globally and per-call
+- [x] Fallback strategy configurable globally and per-call
 - [x] Pydantic v2 TypeAdapter registration for JSON
-- [ ] Thread-safe rate cache
+- [x] Thread-safe rate cache
 
 ## v0.3.x
 - [ ] CLI tool: `fxmoney convert 100 USD EUR --date 2020-01-01`
