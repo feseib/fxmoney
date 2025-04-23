@@ -4,7 +4,7 @@
 - [x] Core Money class with Decimal, operators, comparisons
 - [x] Dummy backend as placeholder
 - [x] Configuration object (base currency, fallback mode, timeout)
-- [x] ECB backend (CSV download, cache, historical)
+- [x] ECB backend (ZIP download, cache, historical)
 - [x] Pluggable REST backend (exchangerate.host)
 
 ## v0.2.x
