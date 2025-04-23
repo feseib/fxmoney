@@ -8,10 +8,10 @@
 - [ ] Pluggable REST backend (exchangerate.host)
 
 ## v0.2.x
-- [ ] Per‑currency quantization (EUR=2, JPY=0, …)
-- [ ] Fallback strategy configurable globally and per‑call
-- [ ] Pydantic v2 TypeAdapter registration for JSON
-- [ ] Thread‑safe rate cache
+- [x] Per-currency quantization (EUR=2, JPY=0, …)
+- [ ] Fallback strategy configurable globally and per-call
+- [x] Pydantic v2 TypeAdapter registration for JSON
+- [ ] Thread-safe rate cache
 
 ## v0.3.x
 - [ ] CLI tool: `fxmoney convert 100 USD EUR --date 2020-01-01`

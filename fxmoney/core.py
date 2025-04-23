@@ -5,6 +5,7 @@ Money class for fxmoney:
 - operators +, -, *, /    (left operand's currency dominates)
 - comparisons  ==, <, <=, >, >=  (automatic FX conversion)
 - to(target, date=None)   convert currency, optional historical date
+- per-currency quantization for presentation
 - to_dict()/from_dict()   minimal dict for JSON
 """
 
@@ -18,7 +19,8 @@ from .rates import convert_amount  # placeholder until real backends installed
 
 
 class Money:
-    """Precise money amount with ISO currency code and auto FX conversion."""
+    """Precise money amount with ISO currency code, auto-FX conversion,
+    and per-currency quantization for presentation."""
 
     __slots__ = ("amount", "currency")
 
@@ -26,30 +28,41 @@ class Money:
         self.amount = Decimal(str(amount))
         self.currency = currency.upper()
 
-    # Internal helper to convert 'other' to this currency
+    # ----- internal helpers -------------------------------------------------
     def _coerce_amount(self, other: Money, on_date: date | None = None) -> Decimal:
+        """Convert other's amount into this currency (raw Decimal)."""
         if self.currency == other.currency:
             return other.amount
         return convert_amount(other.amount, other.currency, self.currency, on_date)
 
-    # Arithmetic operators
+    def _quantize(self, amt: Decimal) -> Decimal:
+        """Quantize amt to minor units for this currency."""
+        places = settings.currency_decimals.get(self.currency, 2)
+        factor = Decimal(1).scaleb(-places)
+        return amt.quantize(factor)
+
+    # ----- arithmetic -------------------------------------------------------
     def __add__(self, other: Money) -> Money:
         if not isinstance(other, Money):
             return NotImplemented
-        return Money(self.amount + self._coerce_amount(other), self.currency)
+        raw = self.amount + self._coerce_amount(other)
+        return Money(raw, self.currency)
 
     def __sub__(self, other: Money) -> Money:
         if not isinstance(other, Money):
             return NotImplemented
-        return Money(self.amount - self._coerce_amount(other), self.currency)
+        raw = self.amount - self._coerce_amount(other)
+        return Money(raw, self.currency)
 
     def __mul__(self, factor: int | float | Decimal) -> Money:
-        return Money(self.amount * Decimal(str(factor)), self.currency)
+        raw = self.amount * Decimal(str(factor))
+        return Money(raw, self.currency)
 
     def __truediv__(self, divisor: int | float | Decimal) -> Money:
-        return Money(self.amount / Decimal(str(divisor)), self.currency)
+        raw = self.amount / Decimal(str(divisor))
+        return Money(raw, self.currency)
 
-    # Comparison operators (auto-convert)
+    # ----- comparison -------------------------------------------------------
     def _pair(self, other: Money) -> tuple[Decimal, Decimal]:
         a = self.amount
         b = self._coerce_amount(other)
@@ -66,24 +79,26 @@ class Money:
     def __gt__(self, other: Money):  a, b = self._pair(other); return a > b
     def __ge__(self, other: Money):  a, b = self._pair(other); return a >= b
 
-    # Currency conversion
+    # ----- conversion -------------------------------------------------------
     def to(self, target: str, on_date: date | None = None) -> Money:
         tgt = target.upper()
         if tgt == self.currency:
-            return self
-        new_amt = convert_amount(self.amount, self.currency, tgt, on_date)
-        return Money(new_amt, tgt)
+            return Money(self.amount, self.currency)
+        raw = convert_amount(self.amount, self.currency, tgt, on_date)
+        return Money(raw, tgt)
 
-    # Representations & JSON helpers
-    def __repr__(self):
+    # ----- representation & JSON helpers ----------------------------------
+    def __repr__(self) -> str:
         return f"Money({str(self.amount)}, '{self.currency}')"
 
-    def __str__(self):
-        return f"{self.amount} {self.currency}"
+    def __str__(self) -> str:
+        q = self._quantize(self.amount)
+        return f"{q} {self.currency}"
 
     def to_dict(self) -> dict[str, str]:
-        """Minimal dict for JSON serialization."""
-        return {"amount": str(self.amount), "currency": self.currency}
+        """Minimal dict for JSON serialization (quantized)."""
+        q = self._quantize(self.amount)
+        return {"amount": str(q), "currency": self.currency}
 
     @classmethod
     def from_dict(cls, d: dict[str, str]) -> Money:
