@@ -1,5 +1,5 @@
 [![PyPI](https://img.shields.io/pypi/v/fxmoney)](https://pypi.org/project/fxmoney/)
-[![Tests](https://github.com/<user>/fxmoney/actions/workflows/test.yml/badge.svg)](https://github.com/<user>/fxmoney/actions)
+[![Tests](https://github.com/<user>/fxmoney/actions/workflows/test.yml/badge.svg)](https://github.com/feseib/fxmoney/actions)
 
 
 # fxmoney
