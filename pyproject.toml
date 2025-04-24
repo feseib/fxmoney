@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fxmoney"
-version = "0.1.0a0"
+version = "0.1.0"
 description = "Lightweight Python library for precise money arithmetic with pluggable FX-rate backends, automatic currency conversion, and clean JSON serialization."
 readme = "README.md"
 requires-python = ">=3.9"
